@@ -16,8 +16,8 @@ export class MonsterRepository {
     return newMonster.save();
   }
 
-  async findAll(): Promise<Monster[]> {
-    return this.monsterModel.find().exec();
+  async findAll(skip = 0, limit = 8): Promise<Monster[]> {
+    return this.monsterModel.find().skip(skip).limit(limit).exec();
   }
 
   async findOne(id: string): Promise<Monster | null> {
@@ -35,5 +35,9 @@ export class MonsterRepository {
 
   async remove(id: string): Promise<Monster | null> {
     return this.monsterModel.findOneAndDelete({ _id: id }).exec();
+  }
+
+  async countDocuments(): Promise<number> {
+    return this.monsterModel.countDocuments({}).exec();
   }
 }

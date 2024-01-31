@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { MonsterService } from './monster.service';
 import { MonsterRepository } from '../repositories/monster.repository';
 import { NotFoundException } from '@nestjs/common';
@@ -9,6 +10,7 @@ import { UpdateMonsterDto } from '../dto/update-monster.dto';
 describe('MonsterService', () => {
   let service: MonsterService;
   let repository: jest.Mocked<MonsterRepository>;
+  let cache: Cache;
 
   const mockMonsterEntity = {
     firstName: 'randomFirstName',
@@ -18,20 +20,33 @@ describe('MonsterService', () => {
     health: 100,
     monsterPassword: 'randomPassword',
   } as Monster;
+  const mockMonsters = {
+    data: [mockMonsterEntity],
+    page_total: 1,
+    count: 12,
+  }
 
   beforeEach(async () => {
     const mockRepository = {
       create: jest.fn().mockResolvedValue(mockMonsterEntity),
-      findAll: jest.fn().mockResolvedValue([mockMonsterEntity]),
+      findAll: jest.fn().mockResolvedValue(mockMonsters),
       findOne: jest.fn().mockResolvedValue(mockMonsterEntity),
       update: jest.fn().mockResolvedValue(mockMonsterEntity),
       remove: jest.fn().mockResolvedValue(mockMonsterEntity),
+      countDocuments: jest.fn().mockResolvedValue(12),
     } as Partial<MonsterRepository>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MonsterService,
         { provide: MonsterRepository, useValue: mockRepository },
+        {
+          provide: CACHE_MANAGER,
+          useValue: {
+            get: () => mockMonsterEntity,
+            set: () => jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -39,6 +54,7 @@ describe('MonsterService', () => {
     repository = module.get<MonsterRepository>(
       MonsterRepository,
     ) as jest.Mocked<MonsterRepository>;
+    cache = module.get(CACHE_MANAGER);
   });
 
   it('should be defined', () => {
@@ -57,7 +73,7 @@ describe('MonsterService', () => {
   describe('findAll', () => {
     it('should return an array of monsters', async () => {
       repository.findAll.mockResolvedValue([mockMonsterEntity]);
-      expect(await service.findAll()).toEqual([mockMonsterEntity]);
+      expect(await service.findAll(0, 12)).toEqual(mockMonsters);
     });
   });
 
@@ -69,6 +85,7 @@ describe('MonsterService', () => {
 
     it('should throw a NotFoundException if monster not found', async () => {
       repository.findOne.mockResolvedValue(null);
+      cache.get = jest.fn().mockResolvedValue(null);
       await expect(service.findOne('1')).rejects.toThrow(NotFoundException);
     });
   });
